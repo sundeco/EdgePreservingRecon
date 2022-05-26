@@ -19,6 +19,7 @@ function pwls_ep_os_rlalm_2d(x, A, yi, R ;
     xtrue = 0 * x
     mask = ones(size(xtrue))
 
+    starts = subset_start(nblock)
     relax0 = relax0[1]
     if length(relax0) == 1
         relax_rate = 0
@@ -39,9 +40,9 @@ function pwls_ep_os_rlalm_2d(x, A, yi, R ;
     end
 
     if length(rho) == 0
-        rho(k) = pi/(alpha*k) * sqrt(1-(pi/(2*(alpha*k)))^2) * (k > 1) + (k == 1)
+        rho2(k) = pi/(alpha*k) * sqrt(1-(pi/(2*(alpha*k)))^2) * (k > 1) + (k == 1)
     else
-        rho(k) = rho
+        rho2(k) = rho
     end
 
     #initialization line 151 in matlab
@@ -76,8 +77,8 @@ function pwls_ep_os_rlalm_2d(x, A, yi, R ;
         for iset = 1:nblock
             k = nblock*(iter-1) + iset
 
-            num = rho(k) * (denom .* x - h) .+ (1-rho(k)) * g
-            den = rho(k) * denom
+            num = rho2(k) * (denom .* x - h) .+ (1-rho2(k)) * g
+            den = rho2(k) * denom
             if length(R) != 0
                 num = num + R.cgrad(x)
                 den = den + R.denom(x)
@@ -100,7 +101,7 @@ function pwls_ep_os_rlalm_2d(x, A, yi, R ;
             end
 
             zeta = scale * Ab[iblock]' * resid[:]
-            g = (rho(k) * (alpha * zeta + (1-alpha)*g) + g) / (rho(k)+1)
+            g = (rho2(k) * (alpha * zeta + (1-alpha)*g) + g) / (rho2(k)+1)
             h = alpha * (denom .* x - zeta) + (1-alpha) * h
         end
     end

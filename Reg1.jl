@@ -1,6 +1,7 @@
 using MIRT
 include("penalty_offsets.jl")
 include("potential_fun.jl")
+include("Rweights.jl")
 export Reg1
 
 mutable struct Reg1
@@ -20,18 +21,13 @@ mutable struct Reg1
     control::Float32
     type_wt::String
     nthread::Int
-    M::Float32
+    M::Int
     dim
     isquad::Bool
-    np::Float32
+    np::Int
     wt::Rweight
     C1s #should be some difference matrix thing
     pot #array of potential functions
-    pot_type::String
-    pot_params::Int
-    cgrad1_str::String
-    denom_sqs1_str::String
-    penal_str::String
     #cdp_arg #this appears to only be for mex, so ignore it
 end
 
@@ -39,13 +35,11 @@ function Reg1(kappa ;
     type_penal::String = "",
     edge_type::String = "tight",
     type_diff::String = "",
-    pot_arg = ["quad"],
-    pot_arg2 = [10]
     beta = 1,
     pot_arg = ["quad"], #huber, delta, cell array
     pot_arg2 = [1],
     type_denom::String = "none",
-    pre_denom_sqs1_xo::Bool = false,
+    pre_denom_sqs_x0::Bool = false,
     distance_power = 1,
     user_wt = [],
     order::Int = 1,
@@ -93,7 +87,7 @@ function Reg1(kappa ;
     end
 
     #line 165 of matlab file: R.kappa = kappa (why?)
-    if not isreal(kappa)
+    if !isreal(kappa)
         error("kappa must be real")
     end
     if any(kappa .< 0)
@@ -118,14 +112,15 @@ function Reg1(kappa ;
     #differencing objects: look into diffl
     C1s = []
     for mm = 1:M
-        append!(C1s, diffl_map(dim, 1))
+        push!(C1s, MIRT.diffl_map(dim, 1))
     end
 
     #desired potential function handles
+    pot = []
     for mm = 1:M
         tmp = pot_arg[min(mm, length(pot_arg))]
         tmp2 = pot_arg2[min(mm, length(pot_arg2))]
-        pot[mm] = potential_fun(tmp, tmp2) #this function is 974 lines lmao
+        push!(pot, potential_fun(tmp, tmp2)) #this function is 974 lines lmao
     end
     type_penal = "mat"
 
@@ -134,7 +129,8 @@ function Reg1(kappa ;
         #don't use another function for this to avoid passing in 1000 arguments
         #R = Reg1_setup_mat()
         #original function starts line 274 of matlab
-        if pre_denom_sqs1_x0
+        if pre_denom_sqs_x0
+            error("shouldn't run this)")
             #do something with denom_sqs_x0
         end
         R = Reg1(type_penal,
@@ -142,7 +138,7 @@ function Reg1(kappa ;
         pot_arg,
         beta,
         type_denom,
-        pre_denom_sqs1_x0,
+        pre_denom_sqs_x0,
         distance_power,
         user_wt,
         order,
@@ -157,10 +153,7 @@ function Reg1(kappa ;
         np,
         wt,
         C1s, #should be some difference matrix thing
-        pot, pot_type, pot_params,
-        cgrad1_str,
-        denom_sqs1_str,
-        penal_str)
+        pot)
     elseif type_penal == "mex"
         error("mex for julia omegalul")
     elseif type_penal == "zxy"
@@ -250,14 +243,14 @@ Reg1_fun0 = Dict([
     (:penal, R -> (x -> Reg1_com_penal(R,x))),
     (:cgrad, R -> (x -> Reg1_com_cgrad(R,x))),
     (:denom_sqs1 , R -> (x -> Reg1_mat_denom_sqs1(R,x))),
-    (:denom, R -> (x -> Reg1_mat_denom(R,x)))
-    (:cgrad1_fun, R -> (x -> Reg1_cgrad1_fun(R,x)))
+    (:denom, R -> (x -> Reg1_mat_denom(R,x))),
+    (:cgrad1_fun, R -> (x -> Reg1_cgrad1_fun(R,x))),
     (:dercurv, R -> (x -> Reg1_dercurv(R,x)))
 ])
 
 Base.getproperty(R::Reg1, s::Symbol) =
-    haskey(Reg1_fun0, s) ? Reg1_fun0[s](wt) :
-    getfield(wt, s)
+    haskey(Reg1_fun0, s) ? Reg1_fun0[s](R) :
+    getfield(R, s)
 
 Base.propertynames(R::Reg1) =
     (fieldnames(typeof(R))..., keys(Reg1_fun0)...)
