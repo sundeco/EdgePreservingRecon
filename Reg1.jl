@@ -2,6 +2,7 @@ using MIRT
 include("penalty_offsets.jl")
 include("potential_fun.jl")
 include("Rweights.jl")
+include("diffs1d.jl")
 export Reg1
 
 mutable struct Reg1
@@ -112,7 +113,8 @@ function Reg1(kappa ;
     #differencing objects: look into diffl
     C1s = []
     for mm = 1:M
-        push!(C1s, MIRT.diffl_map(dim, 1))
+        #push!(C1s, MIRT.diffl_map(dim, 1))
+        push!(C1s, diffs1d_map(prod(dim), offsets[mm]))
     end
 
     #desired potential function handles
@@ -178,10 +180,10 @@ function Reg1_mat_cgrad1(R::Reg1, x)
     for mm = 1:R.M
         d = R.C1s[mm] * x
         pot = R.pot[mm]
-        wt = pot.wpod(d)
+        wt = pot.wpot(d)
         wt = wt .* R.wt.col(mm)
         tmp = R.C1s[mm]' * (wt .* d)
-        cgrad = cgrad + tmp
+        cgrad = cgrad .+ tmp
     end
     cgrad = cgrad .* R.mask[:]
     return cgrad
@@ -195,7 +197,28 @@ function Reg1_mat_denom_sqs1(R::Reg1, x)
     if length(x) == 0
         x = zeros(size(R.mask))
     end
-    return Reg1_mat_denom_sqs1_cell(R.C1s, R.mask, R.pot, R.wt, x)
+    return Reg1_mat_denom_sqs1_cell(R.C1s, R.mask, R.pot, R.wt, x, R.offsets)
+end
+
+#located in a separate matlab file
+function Reg1_mat_denom_sqs1_cell(C1s, mask, pots, ws, x, offsets)
+    x = embed(x, mask)
+    x = x[:]
+    denom = 0
+    for mm = 1:length(C1s)
+        Cm = C1s[mm]
+        d = Cm*x
+        #Cm = abs(Cm) #change this
+        Cm = diffs1d_map_abs(length(x), offsets[mm])
+        ck = Cm * ones(size(x))
+        pot = pots[mm]
+        wt = pot.wpot(d)
+        wt = wt .* reshape(ws.col(mm), size(wt))
+        tmp = Cm' * (wt .* ck)
+        denom = denom .+ tmp
+    end
+    denom = denom[mask[:]]
+    return denom
 end
 
 function Reg1_com_penal(R::Reg1, x)
@@ -209,7 +232,7 @@ function Reg1_com_penal(R::Reg1, x)
     for ll = 1:LL
         penal[ll] = Reg1_com_penal1(R, x[:,ll])
     end
-    return penal
+    return penal[1]
 end
 
 function Reg1_com_penal1(R::Reg1, x)
@@ -232,9 +255,22 @@ function Reg1_com_cgrad(R::Reg1, x)
 
     cgrad = zeros(size(x))
     for ll = 1:LL
-        cgrad[:,ll] = R.cgrad1_fun(R, x[:,ll])
+        cgrad[:,ll] = Reg1_cgrad1_fun(R, x[:,ll])
     end
+    #ei.column does not work here, so just assume it's true
+    cgrad = cgrad[R.mask[:], :]
     return cgrad
+end
+
+function Reg1_com_egrad(R::Reg1, x, delta)
+    egrad = zeros(size(x))
+    ej = zeros(size(x))
+    for jj = 1:length(x)
+        ej[jj] = 1
+        egrad[jj] = (R.penal(x+delta*ej) - R.penal(x))/delta
+        ej[jj] = 0
+    end
+    return egrad
 end
 
 Reg1_fun0 = Dict([
@@ -242,9 +278,10 @@ Reg1_fun0 = Dict([
     (:C, R -> Reg1_com_C(R)),
     (:penal, R -> (x -> Reg1_com_penal(R,x))),
     (:cgrad, R -> (x -> Reg1_com_cgrad(R,x))),
+    (:egrad, R -> ((x,delta) -> Reg1_com_egrad(R,x, delta))),
     (:denom_sqs1 , R -> (x -> Reg1_mat_denom_sqs1(R,x))),
     (:denom, R -> (x -> Reg1_mat_denom(R,x))),
-    (:cgrad1_fun, R -> (x -> Reg1_cgrad1_fun(R,x))),
+    #(:cgrad1_fun, R -> (x -> Reg1_cgrad1_fun(R,x))),
     (:dercurv, R -> (x -> Reg1_dercurv(R,x)))
 ])
 
