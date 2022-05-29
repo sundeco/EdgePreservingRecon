@@ -166,6 +166,7 @@ function pwls_ep_os_rlalm_2d(x, A, yi, R::Reg1 ;
             x = x - relax * num ./ den
             x = max.(x, pixmin)
             x = min.(x, pixmax)
+            x = x[:,:,1]
 
             iblock = starts[iset]
             ia = iblock:nblock:na

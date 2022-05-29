@@ -292,7 +292,7 @@ Base.getproperty(wt::Rweight, s::Symbol) =
 Base.propertynames(wt::Rweight) =
     (fieldnames(typeof(wt))..., keys(Rweight_fun0)...)
 
-test = 1
+test = 0
 if test == 1
     vars = matread("/Users/jasonhu/Documents/julia_files/edge_preserve/testRweights.mat")
     kappa = vars["kappa"]
@@ -311,5 +311,5 @@ if test == 1
         order = order,
         distance_power = distance_power,
         user_wt = user_wt)
-    #print(mw.col(1))
+    println(sum(mw.col(1)))
 end

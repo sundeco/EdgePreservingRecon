@@ -48,4 +48,5 @@ usemat = usemat, isave = "last", nblock = nblock, xtrue = xtrue, mask = mask)
 y = MIRT.embed(x, R.mask)[:,:,1]
 jim(y', clim = (800, 1200))
 
-assess_ssim(y, xtrue)
+#assess_ssim(y, xtrue) this ssim function is wrong!
+println(sqrt(sum((y-xtrue).^2/sum(R.mask)))) #RMSE gives right result
