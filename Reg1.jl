@@ -50,6 +50,68 @@ function Reg1(kappa ;
     control = [],
     type_wt::String = "",
     nthread = 1)
+#=
+Build roughness penalty regularization "object" based on Cdiff1() objects,
+for regularized solutions to inverse problems.
+This version supercedes Robject() by providing its capabilities while
+also providing options that use less memory.  By default it tries to use
+a mex version (penalty_mex.mex*) but if that fails it reverts to a pure
+matlab form that should be completely portable.
+
+General form of (possibly nonquadratic) penalty function:
+	R(x) = \sum_{m=1}^M sum_n w[n;m] potential_m( [C_m x]_n )
+where M is the number of neighbors (offsets), and n=1,...,N=numel(x)
+and C_m is a (N x N) differencing matrix in the direction off_m.
+
+Penalty gradient is \sum_m C_m' D_m(x) C_m x,
+where D_m(x) = diag{w[n;m] \wpot_[n;m]([C_m x]_n)} and \wpot(t) = \pot(t) / t
+
+in
+	kappa	[(N)]		kappa array, or logical support mask
+
+options
+	'type_penal'		'mat' only currently
+	'type_diff'		'def|ind|mex|sparse|...' (see Cdiff1)
+	'order', 1|2		1st-order only
+	'offsets', [M] | char
+				offsets to neighboring pixels
+					(see Cdiff1 for the defaults)
+				use '3d:26' to penalize all 13 pairs of nbrs
+				use "0" for C = I (identity matrix)
+	'beta', [1] | [M]	global regularization parameter(s)|				default: 2^0
+	'pot_arg', {} 		arguments to potential_fun()
+					e.g., {'huber', delta}, or cell{M} array
+				default: {'quad'} for quadratic regularization.
+ ?	'pre_denom_sqs1_x0'	precompute denominator for SQS at x=0? (def: 0)
+	'type_denom', ''	type of "denominator"
+					(for quadratic surrogates like SPS)
+					todo: improve documentation!
+		'matlab'	denominator for SPS
+					todo: precompute?  or just on the fly?
+		'aspire'	denominator for SPS that matches aspire
+		'none'		no denominator precomputation (default)
+	'distance_power', 0|1|2	See Rweights.jl
+	'user_wt', [(N) M]	""
+	'mask'			Override default: mask = (kappa ~= 0)
+				(Only use if you sure know what you're doing!)
+
+out
+	Reg1  struct object with methods:
+	R.penal(x)	evaluates R(x)
+	R.cgrad(x)	evaluates \cgrad R(x) (column gradient)
+	R.denom_sqs1(x)	evaluates denominator for separable quadratic surrogate
+				\sum_m |C_m|' |D_m(x)| (|C_m| 1)
+	R.denom(x)	evaluates denominator for separable surrogate
+	[pderiv pcurv] = feval(R.dercurv, R, R.C1*x) derivatives and curvatures
+				for non-separable parabola surrogates
+	R.diag		diagonal of Hessian of R (at x=0), for preconditioners.
+	R.C1		finite differencing matrix; for 1st-order differences
+			nonzero entries of each row are 1 and -1;
+			for 2nd-order differences each row contains {-1 2 -1}.
+			Almost always should be used in conjunction with R.wt.
+	R.C		diag(sqrt(w)) * C1, only for quadratic case!
+	R.wt		see Rweights
+=#
     if length(type_wt) == 0
         if length(kappa) <= 128^2
             type_wt = "pre"
@@ -60,6 +122,8 @@ function Reg1(kappa ;
 
     #line 122 in reg1.m not done yet
     offsets = penalty_offsets(offsets, size(kappa))
+    offsets = convert(Array{Int}, offsets)
+
     M = length(offsets)
 
     if length(kappa) < order + 1

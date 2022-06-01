@@ -17,6 +17,44 @@ function pwls_ep_os_rlalm_2d(x, A, yi, R::Reg1 ;
     xtrue = 0 * x,
     mask = ones(size(xtrue))
     )
+#=
+penalized weighted least squares estimation / image reconstruction
+using relaxed linearized augmented lagrangian method with
+(optionally relaxed) ordered subsets. (relaxed OS-LALM)
+
+See ?. 201? IEEE T-MI by Hung Nien & J A Fessler
+"Relaxed linearized algorithms for faster X-ray CT image reconstruction"
+http://dx.doi.org/10.1109/TMI.201?
+
+
+cost(x) = (y-Ax)' W (y-Ax) / 2 + R(x)
+
+in
+	x	[np 1]		initial estimate
+	Ab	[nd np]		Gblock object (needs abs(Ab) method)
+				or sparse matrix (implies nsubset=1)
+	yi	[nb na]		measurements (noisy sinogram data)
+	R	penalty		object (see Reg1.jl), can be []
+
+option
+	niter			# of iterations (default: 1)
+	wi	[nb na]		weighting sinogram (default: [] for uniform)
+	pixmax	[1] or [2]	max pixel value, or [min max] (default [0 inf])
+	denom	[np 1]		precomputed denominator
+	aai	[nb na]		precomputed row sums of |Ab|
+	relax0	[1] or [2]	relax0 or (relax0, relax_rate) (default 1)
+	rho			AL penalty parameter (default: [] for decreasing rho)
+	alpha			over-relaxation parameter (default: 1.999)
+	userfun	@		user-defined function handle (see default below)
+					taking arguments (x, userarg{:})
+	chat
+
+out
+	xs	[np niter]	iterates
+
+Translated from pwls_ep_os_rlalm_2d.m
+Copyright 2022-5-31 Jason Hu and Jeff Fessler, University of Michigan
+=#
     scale_nblock = true
     update_even_if_denom_0 = true
 

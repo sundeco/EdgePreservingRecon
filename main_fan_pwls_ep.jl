@@ -14,15 +14,15 @@ ig = image_geom( ; nx = 420, dx = 500/512)
 #ig.mask = ig.circ() .> 0 immutable struct -_-
 
 #load directories with mat files
-vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/kappa.mat")
+vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/2d/kappa.mat")
 kappa = vars["kappa"]
-vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/denom.mat")
+vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/2d/denom.mat")
 denom = vars["denom"]
-vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/sino_fan.mat")
+vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/2d/sino_fan.mat")
 sino = vars["sino"]
-vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/wi.mat")
+vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/2d/wi.mat")
 wi = vars["wi"]
-vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/xfbp.mat")
+vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/2d/xfbp.mat")
 xfbp = vars["xfbp"]
 #setup edge preserving regularizer
 nIter = 10
@@ -34,10 +34,10 @@ pot_arg = ["lange3"]
 pot_arg2 = [delta]
 R = Reg1(sqrt.(kappa), beta = 2^l2b, pot_arg = pot_arg, pot_arg2 = pot_arg2)
 
-vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/xvalue.mat")
+vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/2d/xvalue.mat")
 x = vars["x"]
 
-vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/slice420.mat")
+vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/2d/slice420.mat")
 xtrue = vars["xtrue"]
 A = [1] #change this when 3d backprojection has been implemented
 mask = ig.circ() .> 0

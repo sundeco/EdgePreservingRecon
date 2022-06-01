@@ -7,6 +7,49 @@ mutable struct potential
 end
 
 function potential_fun(ptype::String, delta ; param = [])
+#=
+Define roughness penalty potential functions.
+%|
+The penalty will have the form
+	R(x) = sum_k w_k * potential_k([Cx]_k, delta_k)
+where w_k is provided elsewhere, not here!
+%
+in
+	ptype		quad broken huber hyper2 hyper3 cauchy qgg2 genhub
+			lange1 lange3 (fair) geman&mcclure gf1 li98cfs
+			Recommended: 'hyper3'
+			To list all possible choices, use:
+			potential_fun('list') for "smooth" options
+			potential_fun('list1') for "non-smooth" options
+	delta		scalar, or image-sized array;
+			"cutoff" parameter for edge-preserving regularization
+	param		optional additional parameter(s) for some choices:
+				'gf1' (generalized Fair) : [a b]
+				'qgg2' : q
+				'genhub' & 'stevenson94dpr' : [p q]
+				'table1' : [dz, dpot([1:K] * dz)]
+
+out
+	pot		potential object, with data: ptype, delta and param
+	methods:
+		pot.potk(C*x)	potential function value
+		pot.wpot(C*x)	potential 'weights' (aka half-quad. curvatures)
+		pot.dpot(C*x)	potential derivative
+ 		pot.shrink(b, reg)	proximal (shrinkage) operation:
+					argmin_z 1/2 |z - b|^2 + reg * pot(z)
+		pot.plot()	plot all of the above functions
+
+trick: for ptype 'gf1-fit', the param argument should be:
+	{'name of potential to fit', points, param}
+and this function returns the [a b] parameters needed for a subsequent
+call with ptype 'gf1'
+
+Translated from potential_fun.m in MIRT
+Copyright 2022-5-29, Jason Hu and Jeff Fessler, University of Michigan
+=#
+    if ptype == "list1"
+        return ["l0", "l1", "lpp", "tav", "broken", "fair-l1"]
+    end
     scale = 1
     if ptype == "gf1-fit"
         return ir_potential_fun_gf1_fit(param)

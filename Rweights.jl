@@ -9,7 +9,7 @@ export Rweight
 mutable struct Rweight
     offsets
     type_wt::String
-    beta::Float32
+    beta
     edge_type::String
     distance_power::Float32
     order::Float32
@@ -24,11 +24,64 @@ end
 function Rweights(kappa, offsets ;
     type_wt::String = "pre", #should be either array, fly, or pre
     edge_type::String = "tight",
-    beta::Int = 1, #[1] or [M]
+    beta = 1, #[1] or [M]
     order::Int = 1, #differencing order 1 or 2
     distance_power::Int = 1, #0 1 or 2
     user_wt = [],
     )
+#=
+Build "weights" for roughness penalty for regularized methods.
+Intended to be used internally by roughness penalty object Reg1.
+
+General form of roughness penalty:
+	R(x) = sum_{m=1}^M sum_n w[n;m] potential( [C_m x]_n )
+where M is the number of neighbors (offsets), and n=1,...,N=numel(x)
+and C_m is a (square) differencing matrix in the mth direction off_m.
+
+General form of weights:
+	w[n;m] = beta_m / || off_m ||^distance_power kappa2[n;m] user_wt[n;m]
+where form of kappa2[n;m] depends on 'edge_type' as follows:
+	kappa^2[n] for 'simple' case,
+	kappa[n] kappa[n-off_m] for 'tight', order = 1
+	kappa[n] sqrt(kappa[n-off_m] * kappa[n+off_m]) for 'tight', order = 2
+	kappa[n] kappa[n-off_m] for 'leak' case, order = 1,
+			unless either is zero, in which case square the other.
+			for order=2, square the maximum of all three if needed.
+	kappa[n] kappa_extend[n-off_m] for 'aspire2' case, order = 1
+
+Although the 'tight' case seems preferable to avoid any influence
+of pixels outside of the support, the 'simple' case has the advantage
+that it can be precomputed easily with only N storage, instead of M*N.
+
+in
+	kappa	[(N)]		kappa array, or logical support mask
+	offsets	[M]		offset(s) to neighboring pixels
+
+options
+	'type_wt'		what type of object to return:
+		'array'		[(N) M] array of w[n;m] values
+		'fly'		strum object for computing w[:,m] on-the-fly
+		'pre'		strum object for precomputed w[:,m] (default)
+	'edge_type'		how to handle mask edge conditions
+		'simple'	kappa^2 (almost "tight" but saves memory)
+		'tight'		only penalize within-mask differences (default)
+		'leak'		penalize between mask and neighbors
+					(mostly for consistency with ASPIRE)
+	'beta', [1] or [M]	regularization parameter(s) (default: 2^0)
+	'order' {1|2}		differencing order (only for some cases)
+	'distance_power', {0:1:2}  1 classical (default), 2 possibly improved
+					use 0 if user_wt has its effect already
+	'user_wt', [(N) M]	User-provided array of penalty weight values
+				of dimension [size(kappa) length(offsets)].
+
+out
+	wt [(N) M]		w[n;m] values needed in regularizer
+	or a Rweight object with the following public methods:
+		wt.col(m)	returns w[:,m]
+
+Translated from Rweights.m in MIRT
+Copyright 2022-5-31, Jason Hu and Jeff Fessler, University of Michigan
+=#
     isize = size(kappa)
 
     #beta values adjusted for distance
