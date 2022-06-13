@@ -21,15 +21,7 @@ mutable struct Rweight
     funtype::String #used to store what function col will call
 end
 
-function Rweights(kappa, offsets ;
-    type_wt::String = "pre", #should be either array, fly, or pre
-    edge_type::String = "tight",
-    beta = 1, #[1] or [M]
-    order::Int = 1, #differencing order 1 or 2
-    distance_power::Int = 1, #0 1 or 2
-    user_wt = [],
-    )
-#=
+"""
 Build "weights" for roughness penalty for regularized methods.
 Intended to be used internally by roughness penalty object Reg1.
 
@@ -81,7 +73,15 @@ out
 
 Translated from Rweights.m in MIRT
 Copyright 2022-5-31, Jason Hu and Jeff Fessler, University of Michigan
-=#
+"""
+function Rweights(kappa, offsets ;
+    type_wt::String = "pre", #should be either array, fly, or pre
+    edge_type::String = "tight",
+    beta = 1, #[1] or [M]
+    order::Int = 1, #differencing order 1 or 2
+    distance_power::Int = 1, #0 1 or 2
+    user_wt = [],
+    )
     isize = size(kappa)
 
     #beta values adjusted for distance
@@ -228,7 +228,7 @@ function Rweights_kappa2_mat(kappa, offset, displace, edge_type, order)
             ip = jf_ind2sub(Nd, ii .+ offset)
             tmp = repeat(displace, inner = (1,1), outer = (length(ii), 1))
             good = ((ic-inn) .== tmp .&& (ip-ic) .== tmp)
-            kappa2[ii] = kappa2[ii] .* all(good)
+            @inbounds kappa2[ii] = kappa2[ii] .* all(good, dims=2)
         else
             error("bad order")
         end
@@ -236,12 +236,12 @@ function Rweights_kappa2_mat(kappa, offset, displace, edge_type, order)
         kappa2 = zeros(size(kappa[:]))
         if order == 1
             ii = (1 + max(offset,0)):(Ns + min(offset,0))
-            kappa2[ii] = kappa[ii] .* kappa[ii .- offset]
+            @inbounds kappa2[ii] = kappa[ii] .* kappa[ii .- offset]
 
-            ic = jf_ind2sub(Nd, ii)
-            inn = jf_ind2sub(Nd, ii .- offset)
-            good = (ic - inn) .== repeat(displace, inner = (1,1), outer = (length(ii), 1))
-            kappa2[ii] = kappa2[ii] .* all(good)
+            @inbounds ic = jf_ind2sub2(Nd, ii)
+            @inbounds inn = jf_ind2sub2(Nd, ii .- offset)
+            @inbounds good = (ic - inn) .== repeat(displace, inner = (1,1), outer = (length(ii), 1))
+            @inbounds kappa2[ii] .*= all(good, dims=2)
         elseif order == 2
             ii = (1 + abs(offset)) : (Ns - abs(offset))
             kappa2[ii] = kappa[ii] .* sqrt.(kappa[ii .- offset] .* kappa[ii .+ offset])
@@ -252,7 +252,7 @@ function Rweights_kappa2_mat(kappa, offset, displace, edge_type, order)
             ip = jf_ind2sub(Nd, ii .+ offset)
             tmp = repeat(displace, inner = (1,1), outer = (length(ii), 1))
             good = ((ic-inn) .== tmp .&& (ip-ic) .== tmp)
-            kappa2[ii] = kappa2[ii] .* all(good)
+            kappa2[ii] = kappa2[ii] .* all(good, dims=2)
         else
             error("bad order")
         end
@@ -295,37 +295,54 @@ function Rweights_kappa_expand(kappa)
     return kappa
 end
 
-function all(arr)
-    #in matlab we only use all(good, 2) so assume that input works
-    ret = zeros(size(arr,1))
-    for i = 1:size(arr,1)
-        ret[i] = !any(arr[i,:] == 0)
+#not needed apparently
+# function all(arr)
+#     #in matlab we only use all(good, 2) so assume that input works
+#     ret = [!any(arr[i,:] == 0) for i = 1:size(arr,1)]
+#     # ret = zeros(size(arr,1))
+#     # for i = 1:size(arr,1)
+#     #     ret[i] = !any(arr[i,:] == 0)
+#     # end
+#     return convert.(Int, ret)
+# end
+
+function jf_ind2sub(Nd, ii)
+    i2s = CartesianIndices(zeros(Nd))
+    @inbounds out = i2s[ii]
+    if length(Nd) == 2
+        return [getindex.(out, 1) getindex.(out, 2)]
+    elseif length(Nd) == 3
+        return [getindex.(out, 1) getindex.(out, 2) getindex.(out, 3)]
+    else
+        error("not done")
     end
-    return convert.(Int, ret)
 end
 
-function jf_ind2sub(Nd, ind)
+function jf_ind2sub2(Nd, ind)
     ind = ind[:]
-    subs = zeros(length(ind), length(Nd))
+    # subs = zeros(length(ind), length(Nd))
     if length(Nd) == 2
         first, second = Base._ind2sub(Nd, ind)
-        subs[:,1] = first
-        subs[:,2] = second
+        # subs[:,1] = first
+        # subs[:,2] = second
+        return [first second]
     elseif length(Nd) == 3
         first, second, third = Base._ind2sub(Nd, ind)
-        subs[:,1] = first
-        subs[:,2] = second
-        subs[:,3] = third
+        # subs[:,1] = first
+        # subs[:,2] = second
+        # subs[:,3] = third
+        return [first second third]
     elseif length(Nd) == 4
         first, second, third, fourth = Base._ind2sub(Nd, ind)
-        subs[:,1] = first
-        subs[:,2] = second
-        subs[:,3] = third
-        subs[:,4] = fourth
+        # subs[:,1] = first
+        # subs[:,2] = second
+        # subs[:,3] = third
+        # subs[:,4] = fourth
+        return [first second third fourth]
     else
         fail("not done")
     end
-    return subs
+    return 0
 end
 
 function Rweights_self_test()

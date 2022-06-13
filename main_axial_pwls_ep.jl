@@ -5,20 +5,29 @@ using Images
 include("Reg1.jl")
 include("rlalm_3d.jl")
 include("reshaper.jl")
+include("/Users/jasonhu/Documents/julia_files/sf_from_scratch/gblock.jl")
 
 down = 1
-usemat = true
+usemat = false
 
 ig = image_geom( ; nx = 420, dx = 500/512, nz = 96, dz = 0.625)
+cg = ct_geom(:ge1)
 
-vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/3d/kappa.mat")
-kappa = vars["kappa"]
-vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/3d/denom.mat")
-denom = vars["denom"]
-vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/3d/sino_cone.mat")
-sino = vars["sino"]
-vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/3d/wi.mat")
-wi = vars["wi"]
+if usemat
+    vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/3d/kappa.mat")
+    kappa = vars["kappa"]
+    vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/3d/denom.mat")
+    denom = vars["denom"]
+    vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/3d/sino_cone.mat")
+    sino = vars["sino"]
+    vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/3d/wi.mat")
+    wi = vars["wi"]
+else
+    FileIO.load("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/sino_true.jld2", "sino_true");
+    FileIO.load("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/kappa.jld2", "kappa");
+    FileIO.load("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/denom.jld2", "denom");
+    FileIO.load("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/wi.jld2", "wi");
+end
 vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/3d/xfdk.mat")
 xfdk = vars["xfdk"]
 
@@ -46,8 +55,8 @@ pot_arg2 = pot_arg2, distance_power = 0, mask = mask)
 vars = matread("/Users/jasonhu/Documents/GitHub/EdgePreservingRecon/data/3d/xvalue.mat")
 x = vars["x"]
 
-denom = denom[R.mask]
-A = [1]
+#denom = denom[R.mask]
+A = gblock(cg, ig, nblock)
 x = pwls_ep_os_rlalm_3d(xfdk[mask], A, reshaper(sino, "2d"), R ;
 wi = reshaper(wi, "2d"), niter = nIter, denom = denom, chat = false,
 xtrue = xtrue, mask = mask, usemat = usemat, nblock = nblock)

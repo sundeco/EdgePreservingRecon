@@ -1,6 +1,4 @@
-include("/Users/jasonhu/Documents/GitHub/Sinograms.jl/src/outer_sum.jl")
-function penalty_offsets(offsets, isize)
-#=
+"""
 function offsets = penalty_offsets(offsets, isize)
 
 determine the 'offsets' argument needed by regularizers
@@ -12,12 +10,13 @@ in
 			'3d:hvu' [1 nx nx*ny] (3d default)
 			'3d:26'	all 13 neighbors in 3d
 	isize [N]	image size
-    out
+out
 	offsets [L]	penalty offsets, e.g., [1 nx nx+1 nx-1]
 
 Translated from penalty_offsets.m in MIRT
 Copyright 2022-5-29, Jason Hu and Jeff Fessler, University of Michigan
-=#
+"""
+function penalty_offsets(offsets, isize)
     if length(offsets) == 0
         if length(isize) == 1
             if isize[1] <= 1
@@ -86,7 +85,7 @@ Copyright 2022-5-29, Jason Hu and Jeff Fessler, University of Michigan
             nx = isize[1]
             ny = isize[2]
             nz = isize[3]
-            tmp = outer_sum([-1:1;], [-1:1;]*nx)
+            tmp = [-1:1;] .+ ([-1:1;]*nx)'
             offsets = [1; nx .+ [0,1,-1]; nx*ny .+ tmp[:]]
         else
             error("Bad offsets string")

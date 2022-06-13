@@ -1,7 +1,6 @@
 using MIRT
 include("penalty_displace.jl")
-function penalty_distance(offsets, sizes)
-#=
+"""
 convert scalar offsets to Euclidean distances to neighbors,
 with the exception that '0' is mapped to 1 for identity case
 
@@ -13,8 +12,8 @@ out
 
 Translated from penalty_distance.m
 Copyright 2022-5-23, Jason Hu and Jeff Fessler, University of Michigan
-=#
-
+"""
+function penalty_distance(offsets, sizes)
     displace = penalty_displace(offsets[:], sizes)
     distance = sqrt.(sum(displace.^2, dims = 2))
     distance[offsets .== 0] .= 1

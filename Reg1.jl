@@ -51,12 +51,8 @@ function Reg1(kappa ;
     type_wt::String = "",
     nthread = 1)
 #=
-Build roughness penalty regularization "object" based on Cdiff1() objects,
+Build roughness penalty regularization "object" based on diffl() objects,
 for regularized solutions to inverse problems.
-This version supercedes Robject() by providing its capabilities while
-also providing options that use less memory.  By default it tries to use
-a mex version (penalty_mex.mex*) but if that fails it reverts to a pure
-matlab form that should be completely portable.
 
 General form of (possibly nonquadratic) penalty function:
 	R(x) = \sum_{m=1}^M sum_n w[n;m] potential_m( [C_m x]_n )
@@ -175,19 +171,19 @@ out
     wt = Rweights(kappa, offsets; type_wt, edge_type, beta, order, distance_power, user_wt)
 
     #differencing objects: look into diffl
-    C1s = []
-    for mm = 1:M
-        #push!(C1s, MIRT.diffl_map(dim, 1))
-        push!(C1s, diffs1d_map(prod(dim), offsets[mm]))
-    end
+    C1s = [diffs1d_map(prod(dim), offsets[mm]) for mm = 1:M]
+    # for mm = 1:M
+    #     #push!(C1s, MIRT.diffl_map(dim, 1))
+    #     push!(C1s, diffs1d_map(prod(dim), offsets[mm]))
+    # end
 
     #desired potential function handles
-    pot = []
-    for mm = 1:M
-        tmp = pot_arg[min(mm, length(pot_arg))]
-        tmp2 = pot_arg2[min(mm, length(pot_arg2))]
-        push!(pot, potential_fun(tmp, tmp2)) #this function is 974 lines lmao
-    end
+    pot = [potential_fun(pot_arg[min(mm, length(pot_arg))], pot_arg2[min(mm, length(pot_arg2))]) for mm = 1:M]
+    # for mm = 1:M
+    #     tmp = pot_arg[min(mm, length(pot_arg))]
+    #     tmp2 = pot_arg2[min(mm, length(pot_arg2))]
+    #     push!(pot, potential_fun(tmp, tmp2)) #this function is 974 lines lmao
+    # end
     type_penal = "mat"
 
     #line 234 of matlab code
@@ -245,11 +241,11 @@ function Reg1_mat_cgrad1(R::Reg1, x)
         d = R.C1s[mm] * x
         pot = R.pot[mm]
         wt = pot.wpot(d)
-        wt = wt .* R.wt.col(mm)
+        wt .*= R.wt.col(mm) #this takes by far the longest time
         tmp = R.C1s[mm]' * (wt .* d)
         cgrad = cgrad .+ tmp
     end
-    cgrad = cgrad .* R.mask[:]
+    cgrad .*= R.mask[:]
     return cgrad
 end
 
@@ -277,12 +273,11 @@ function Reg1_mat_denom_sqs1_cell(C1s, mask, pots, ws, x, offsets)
         ck = Cm * ones(size(x))
         pot = pots[mm]
         wt = pot.wpot(d)
-        wt = wt .* reshape(ws.col(mm), size(wt))
+        wt .*= reshape(ws.col(mm), size(wt))
         tmp = Cm' * (wt .* ck)
         denom = denom .+ tmp
     end
-    denom = denom[mask[:]]
-    return denom
+    return denom[mask[:]]
 end
 
 function Reg1_com_penal(R::Reg1, x)

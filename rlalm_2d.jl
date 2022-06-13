@@ -1,23 +1,7 @@
 using MIRTjim: jim
 include("Reg1.jl")
 include("subset_start.jl")
-function pwls_ep_os_rlalm_2d(x, A, yi, R::Reg1 ;
-    niter::Int = 1,
-    wi = [], #weighting matrix for sinogram
-    pixmax = Inf,
-    denom = [], #precomputed denominator
-    aai = [], #precomputed row sums of |Ab|
-    relax0 = 1,
-    rho = [], #AL penalty parameter
-    alpha = 1.999, #over relaxation parameter
-    chat::Bool = false,
-    usemat::Bool = false,
-    isave::String = "",
-    nblock::Int = 1,
-    xtrue = 0 * x,
-    mask = ones(size(xtrue))
-    )
-#=
+"""
 penalized weighted least squares estimation / image reconstruction
 using relaxed linearized augmented lagrangian method with
 (optionally relaxed) ordered subsets. (relaxed OS-LALM)
@@ -54,7 +38,23 @@ out
 
 Translated from pwls_ep_os_rlalm_2d.m
 Copyright 2022-5-31 Jason Hu and Jeff Fessler, University of Michigan
-=#
+"""
+function pwls_ep_os_rlalm_2d(x, A, yi, R::Reg1 ;
+    niter::Int = 1,
+    wi = [], #weighting matrix for sinogram
+    pixmax = Inf,
+    denom = [], #precomputed denominator
+    aai = [], #precomputed row sums of |Ab|
+    relax0 = 1,
+    rho = [], #AL penalty parameter
+    alpha = 1.999, #over relaxation parameter
+    chat::Bool = false,
+    usemat::Bool = false,
+    isave::String = "",
+    nblock::Int = 1,
+    xtrue = 0 * x,
+    mask = ones(size(xtrue))
+    )
     scale_nblock = true
     update_even_if_denom_0 = true
 

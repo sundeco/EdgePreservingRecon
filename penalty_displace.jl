@@ -1,6 +1,5 @@
 using MIRT
-function penalty_displace(offsets, sizes)
-#=
+"""
 Convert scalar offsets to vector displacements, i.e.,
 find d1,d2,... such that d1*1 + d2*n1 + d3*n1*n2 + ... = offset.
 Example: if offset = n1, then [d1 d2 d3] = [0 1 0]
@@ -15,7 +14,8 @@ out
 
 Translated from penalty_displace.m in MIRT
 Copyright 2022-5-23, Jason Hu and Jeff Fessler, University of Michigan
-=#
+"""
+function penalty_displace(offsets, sizes)
     ndim = length(sizes)
     offsets = offsets[:]
     displace = 6969 * ones(length(offsets), ndim)

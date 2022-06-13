@@ -6,8 +6,7 @@ mutable struct potential
     param
 end
 
-function potential_fun(ptype::String, delta ; param = [])
-#=
+"""
 Define roughness penalty potential functions.
 %|
 The penalty will have the form
@@ -46,7 +45,8 @@ call with ptype 'gf1'
 
 Translated from potential_fun.m in MIRT
 Copyright 2022-5-29, Jason Hu and Jeff Fessler, University of Michigan
-=#
+"""
+function potential_fun(ptype::String, delta ; param = [])
     if ptype == "list1"
         return ["l0", "l1", "lpp", "tav", "broken", "fair-l1"]
     end

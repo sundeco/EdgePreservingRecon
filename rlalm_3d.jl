@@ -1,23 +1,7 @@
 using MIRTjim: jim
 include("Reg1.jl")
 include("subset_start.jl")
-function pwls_ep_os_rlalm_3d(x, A, yi, R::Reg1 ;
-    niter::Int = 1,
-    wi = [], #weighting matrix for sinogram
-    pixmax = Inf,
-    denom = [], #precomputed denominator
-    aai = [], #precomputed row sums of |Ab|
-    relax0 = 1,
-    rho = [], #AL penalty parameter
-    alpha = 1.999, #over relaxation parameter
-    chat::Bool = false,
-    usemat::Bool = false,
-    isave::String = "",
-    nblock::Int = 1,
-    xtrue = 0 * x,
-    mask = ones(size(xtrue))
-    )
-#=
+"""
 penalized weighted least squares estimation / image reconstruction
 using relaxed linearized augmented lagrangian method with
 (optionally relaxed) ordered subsets. (relaxed OS-LALM)
@@ -54,7 +38,23 @@ out
 
 Translated from pwls_ep_os_rlalm_2d.m
 Copyright 2022-5-31 Jason Hu and Jeff Fessler, University of Michigan
-=#
+"""
+function pwls_ep_os_rlalm_3d(x, A, yi, R::Reg1 ;
+    niter::Int = 1,
+    wi = [], #weighting matrix for sinogram
+    pixmax = Inf,
+    denom = [], #precomputed denominator
+    aai = [], #precomputed row sums of |Ab|
+    relax0 = 1,
+    rho = [], #AL penalty parameter
+    alpha = 1.999, #over relaxation parameter
+    chat::Bool = false,
+    usemat::Bool = false,
+    isave::String = "",
+    nblock::Int = 1,
+    xtrue = 0 * x,
+    mask = ones(size(xtrue))
+    )
     scale_nblock = true
     update_even_if_denom_0 = true
 
@@ -159,8 +159,9 @@ Copyright 2022-5-31 Jason Hu and Jeff Fessler, University of Michigan
         mat"li = Ab{iblock} * x"
         @mget li
     else
-        li = Ab[iblock] * x
+        @time li = Ab[iblock] * MIRT.embed(x, mask)
     end
+    odimsize = size(li)
     li = reshape(li, (nb, length(ia)))
     resid = wi[:,ia] .* (li - yi[:,ia])
     if scale_nblock
@@ -175,7 +176,9 @@ Copyright 2022-5-31 Jason Hu and Jeff Fessler, University of Michigan
         mat"zeta = scale * Ab{iblock}' * resid(:)"
         @mget zeta
     else
-        zeta = scale * Ab[iblock]' * resid[:]
+        @time zeta = scale * Ab[iblock]' * reshape(resid, odimsize)
+        zeta = zeta[mask]
+        @show(sum(zeta))
     end
 
     g = rho2(1) * zeta
@@ -201,8 +204,8 @@ Copyright 2022-5-31 Jason Hu and Jeff Fessler, University of Michigan
             num = rho2(k) * (denom .* x - h) .+ (1-rho2(k)) * g
             den = rho2(k) * denom
 
-            num = num + R.cgrad(x)
-            den = den + R.denom(x)
+            @time num = num + R.cgrad(x)
+            @time den = den + R.denom(x)
 
             x = x - relax * num ./ den
             x = max.(x, pixmin)
@@ -220,7 +223,7 @@ Copyright 2022-5-31 Jason Hu and Jeff Fessler, University of Michigan
                 mat"li = Ab{iblock} * x"
                 @mget li
             else
-                li = Ab[iblock] * x
+                @time li = Ab[iblock] * MIRT.embed(x, mask)
             end
             li = reshape(li, (nb, length(ia)))
             resid = wi[:,ia] .* (li - yi[:,ia])
@@ -238,7 +241,8 @@ Copyright 2022-5-31 Jason Hu and Jeff Fessler, University of Michigan
                 mat"zeta = scale * Ab{iblock}' * resid(:)"
                 @mget zeta
             else
-                zeta = scale * Ab[iblock]' * resid[:]
+                @time zeta = scale * Ab[iblock]' * reshape(resid, odimsize)
+                zeta = zeta[mask]
             end
             g = (rho2(k) * (alpha * zeta + (1-alpha)*g) + g) / (rho2(k)+1)
             h = alpha * (denom .* x - zeta) + (1-alpha) * h

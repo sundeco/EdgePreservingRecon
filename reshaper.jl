@@ -1,5 +1,4 @@
-function reshaper(x, dim)
-#=
+"""
 reshape function that is more flexible and allows for multiples
 
 in
@@ -12,7 +11,8 @@ out
 
 Translated from reshaper.m in MIRT
 Copyright 2022-5-31, Jason Hu and Jeff Fessler, University of Michigan
-=#
+"""
+function reshaper(x, dim)
     dim_i = size(x)
 
     if isa(dim, String) && dim == "2d"

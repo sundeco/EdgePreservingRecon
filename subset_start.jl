@@ -1,5 +1,4 @@
-function subset_start(nsubset)
-#=
+"""
 Compute array of subset starting indices "starts" for OS algorithms.
 If input is an empty matrix, then 1 subset is used.
 If input is a scalar power of 2 != 1,
@@ -12,7 +11,8 @@ See guan:94:apa doi 10.1088/0031-9155/39/11/013
 
 Translated from subset_start.m in MIRT
 Copyright 2022-5-31, Jason Hu and Jeff Fessler, University of Michigan
-=#
+"""
+function subset_start(nsubset)
     if length(nsubset) == 1
         starts = 1 .+ bit_reverse(nsubset)
     end
