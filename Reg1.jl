@@ -265,7 +265,11 @@ function Reg1_mat_denom_sqs1_cell(C1s, mask, pots, ws, x, offsets)
     x = embed(x, mask)
     x = x[:]
     denom = 0
-    for mm = 1:length(C1s)
+    #denomarr = Vector{Float32}[]
+    # for i = 1:Threads.nthreads()
+    #     push!(denomarr, zeros(prod(size(mask))))
+    # end
+    Threads.@threads for mm = 1:length(C1s)
         Cm = C1s[mm]
         d = Cm*x
         #Cm = abs(Cm) #change this
@@ -276,7 +280,13 @@ function Reg1_mat_denom_sqs1_cell(C1s, mask, pots, ws, x, offsets)
         wt .*= reshape(ws.col(mm), size(wt))
         tmp = Cm' * (wt .* ck)
         denom = denom .+ tmp
+        #tmp[1] = 1
+        #denomarr[Threads.threadid()] .+= tmp
     end
+    # denom = 0
+    # for i = 1:Threads.nthreads()
+    #     denom = denom .+ denomarr[i]
+    # end
     return denom[mask[:]]
 end
 

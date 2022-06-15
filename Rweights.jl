@@ -3,6 +3,7 @@ include("penalty_distance.jl")
 using MIRT
 using MIRTjim
 using MAT #only for testing purposes
+using ThreadsX
 
 export Rweight
 
@@ -235,13 +236,29 @@ function Rweights_kappa2_mat(kappa, offset, displace, edge_type, order)
     elseif edge_type == "tight"
         kappa2 = zeros(size(kappa[:]))
         if order == 1
-            ii = (1 + max(offset,0)):(Ns + min(offset,0))
+            ii = (1 + max(offset,0)):(Ns + min(offset,0)) #length is around 420*420*96 usually
             @inbounds kappa2[ii] = kappa[ii] .* kappa[ii .- offset]
+            #ic = jf_ind2sub2(Nd, ii) #array of size 1.6e7 rows and 3 columns, there must be a faster way!
+            #inn = jf_ind2sub2(Nd, ii .- offset)
+            ic = jason_ind2sub(Nd[1], Nd[2], Nd[3], ii[1], ii[end])
+            inn = jason_ind2sub(Nd[1], Nd[2], Nd[3], ii[1]-offset, ii[end]-offset)
+            #good = (ic - inn) .== repeat(displace, inner = (1,1), outer = (length(ii), 1))
 
-            @inbounds ic = jf_ind2sub2(Nd, ii)
-            @inbounds inn = jf_ind2sub2(Nd, ii .- offset)
-            @inbounds good = (ic - inn) .== repeat(displace, inner = (1,1), outer = (length(ii), 1))
-            @inbounds kappa2[ii] .*= all(good, dims=2)
+            #@time @inbounds good = [(@view(ic[i,:]) .== (@view(inn[i,:]) + displace)) for i = 1:size(ic,1)]
+            #v = @view kappa2[ii]
+            # for i = 1:size(ic,1)
+            #     if all(j -> ic[i,j] == inn[i,j] + displace[j], 1:length(displace))
+            #         v[i] = zero(eltype(kappa2))
+            #     end
+            # end
+            # for i = 1:size(ic, 1)
+            #     if !all(good[i])
+            #         v[i] = zero(eltype(kappa2))
+            #     end
+            # end
+            #good = dont_repeat(ic, inn, displace)
+            #@inbounds kappa2[ii] .*= all(good, dims=2)
+            get_kappa2!(ic, inn, displace, ii, kappa2)
         elseif order == 2
             ii = (1 + abs(offset)) : (Ns - abs(offset))
             kappa2[ii] = kappa[ii] .* sqrt.(kappa[ii .- offset] .* kappa[ii .+ offset])
@@ -295,17 +312,6 @@ function Rweights_kappa_expand(kappa)
     return kappa
 end
 
-#not needed apparently
-# function all(arr)
-#     #in matlab we only use all(good, 2) so assume that input works
-#     ret = [!any(arr[i,:] == 0) for i = 1:size(arr,1)]
-#     # ret = zeros(size(arr,1))
-#     # for i = 1:size(arr,1)
-#     #     ret[i] = !any(arr[i,:] == 0)
-#     # end
-#     return convert.(Int, ret)
-# end
-
 function jf_ind2sub(Nd, ii)
     i2s = CartesianIndices(zeros(Nd))
     @inbounds out = i2s[ii]
@@ -316,6 +322,54 @@ function jf_ind2sub(Nd, ii)
     else
         error("not done")
     end
+end
+
+#get kappa2 directly
+function get_kappa2!(ic, inn, displace, ii, kappa2)
+    for i = 1:size(ic, 1)
+        if ic[i, 1] - inn[i,1] != displace[1] || ic[i, 2] - inn[i,2] != displace[2]  || ic[i, 3] - inn[i,3] != displace[3]
+            kappa2[ii[i]] = 0
+        end
+    end
+    return kappa2
+end
+
+#replaces a line that requires repeating a matrix lots of times
+function dont_repeat(ic, inn, displace)
+    out = Vector{Int64}(undef, size(ic, 1))
+    for i = 1:size(ic, 1)
+        if ic[i, 1] - inn[i,1] == displace[1] && ic[i, 2] - inn[i,2] == displace[2]  && ic[i, 3] - inn[i,3] == displace[3]
+            out[i] = 1
+        else
+            out[i] = 0
+        end
+    end
+    return out
+end
+
+#version of jf_ind2sub2 that is faster for ranges of integers
+function jason_ind2sub(m, n, p, lb, ub)
+    first = jf_ind2sub2((m,n,p), [lb])
+    out = Matrix{Int64}(undef, ub-lb+1, 3)
+    out[1,1] = first[1]
+    out[1,2] = first[2]
+    out[1,3] = first[3]
+    for i = 1:ub-lb
+        if out[i,1] < m
+            out[i+1, 1] = out[i,1] + 1
+            out[i+1, 2] = out[i,2]
+            out[i+1, 3] = out[i,3]
+        elseif out[i,2] < n
+            out[i+1,1] = 1
+            out[i+1, 2] = out[i, 2] + 1
+            out[i+1, 3] = out[i,3]
+        else
+            out[i+1,1] = 1
+            out[i+1, 2] = 1
+            out[i+1,3] = out[i,3] + 1
+        end
+    end
+    return out
 end
 
 function jf_ind2sub2(Nd, ind)

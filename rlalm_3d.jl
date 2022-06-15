@@ -85,6 +85,8 @@ function pwls_ep_os_rlalm_3d(x, A, yi, R::Reg1 ;
         @mput wi
         @mput yi
         @mget nblock
+    else
+        Ab = A
     end
     @show(nblock)
 
